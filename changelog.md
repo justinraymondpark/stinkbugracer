@@ -5,6 +5,14 @@
 - Add README and .gitignore
 - Add @types/three and successful build
 
+## v0.0.3
+
+- Add `RaceManager` with checkpoints, laps, and ranking
+- Expand `TrackBuilder` with ramp shortcut and waypoints for AI
+- Update `AIRacer` to follow waypoints; some bots prefer shortcut
+- Integrate race HUD updates in `GameScene`
+ - Fix AI turning math (replace missing angleDifference)
+
 ## v0.0.1
 
 - Initial scaffold with Vite + TypeScript + Three.js

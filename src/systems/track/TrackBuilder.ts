@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 
+export type BuiltTrack = {
+  root: THREE.Group;
+  checkpoints: THREE.Vector3[];
+  waypointsMain: THREE.Vector3[];
+  waypointsShortcut: THREE.Vector3[];
+};
+
 export class TrackBuilder {
-  buildSampleTrack(): THREE.Group {
+  buildSampleTrack(): BuiltTrack {
     const group = new THREE.Group();
 
     // Main loop (oval with variation)
@@ -39,6 +46,15 @@ export class TrackBuilder {
     tunnel.rotation.z = Math.PI / 2;
     group.add(tunnel);
 
+    // Ramp shortcut (jump)
+    const ramp = new THREE.Mesh(
+      new THREE.BoxGeometry(4, 0.5, 2),
+      new THREE.MeshStandardMaterial({ color: 0x3a3a48 })
+    );
+    ramp.position.set(8, 0.25, -4);
+    ramp.rotation.z = -0.35;
+    group.add(ramp);
+
     // Environment props
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(60, 48),
@@ -60,7 +76,35 @@ export class TrackBuilder {
       group.add(rock);
     }
 
-    return group;
+    // Waypoints & checkpoints
+    const waypointsMain = points.map(p => p.clone());
+
+    // Build a shortcut path that goes through the tunnel
+    const shortcut = waypointsMain.map(p => p.clone());
+    // Find a segment closest to tunnel center (-10, 0, 0)
+    const tunnelCenter = new THREE.Vector3(-10, 0.35, 0);
+    let nearestIndex = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < shortcut.length; i++) {
+      const d = shortcut[i].distanceToSquared(tunnelCenter);
+      if (d < nearestDist) { nearestDist = d; nearestIndex = i; }
+    }
+    const insertPoints = [
+      new THREE.Vector3(-12, 0.35, 3),
+      new THREE.Vector3(-10, 0.35, 0),
+      new THREE.Vector3(-12, 0.35, -3),
+    ];
+    // Replace a few points around the nearest index with tunnel points
+    const replaceCount = 3;
+    shortcut.splice(Math.max(0, nearestIndex - 1), replaceCount, ...insertPoints);
+
+    // Checkpoints every 4 points (~8 checkpoints around loop)
+    const checkpoints: THREE.Vector3[] = [];
+    for (let i = 0; i < waypointsMain.length; i += 4) {
+      const p = waypointsMain[i].clone(); p.y = 0.35; checkpoints.push(p);
+    }
+
+    return { root: group, checkpoints, waypointsMain, waypointsShortcut: shortcut };
   }
 }
 

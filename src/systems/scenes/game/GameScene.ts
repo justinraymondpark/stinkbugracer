@@ -3,9 +3,10 @@ import { Engine } from '../../engine/Engine';
 import { SceneManager } from '../../engine/SceneManager';
 import { SceneBase } from '../../engine/Scene';
 import { InputSystem } from '../../input/InputSystem';
-import { TrackBuilder } from '../../track/TrackBuilder';
+import { TrackBuilder, BuiltTrack } from '../../track/TrackBuilder';
 import { StinkbugController } from '../../vehicles/StinkbugController';
 import { AIRacer } from '../../vehicles/AIRacer';
+import { RaceManager } from '../../race/RaceManager';
 
 export class GameScene extends SceneBase {
   private world: THREE.Group = new THREE.Group();
@@ -13,6 +14,8 @@ export class GameScene extends SceneBase {
   private player!: StinkbugController;
   private ai: AIRacer[] = [];
   private hud: HTMLDivElement | null = null;
+  private race!: RaceManager;
+  private built!: BuiltTrack;
 
   constructor(private engine: Engine, private sceneManager: SceneManager) {
     super();
@@ -28,9 +31,9 @@ export class GameScene extends SceneBase {
 
     this.threeScene.add(this.world);
 
-    // Build an interesting track with a shortcut
-    const track = new TrackBuilder().buildSampleTrack();
-    this.world.add(track);
+    // Build an interesting track with multiple shortcuts
+    this.built = new TrackBuilder().buildSampleTrack();
+    this.world.add(this.built.root);
 
     // Player + AI
     this.input = new InputSystem();
@@ -38,11 +41,18 @@ export class GameScene extends SceneBase {
     this.player.getObject3D().position.set(0, 0.5, 0);
     this.world.add(this.player.getObject3D());
 
+    // Race manager
+    this.race = new RaceManager(this.built.checkpoints, 3);
+    this.race.registerRacer(this.player.getObject3D(), 'You');
+
     for (let i = 0; i < 4; i++) {
-      const bot = new AIRacer();
+      const takeShortcut = i % 2 === 0;
+      const path = takeShortcut ? this.built.waypointsShortcut : this.built.waypointsMain;
+      const bot = new AIRacer(path);
       bot.getObject3D().position.set(0.5 * (i + 1), 0.5, -2 - i);
       this.ai.push(bot);
       this.world.add(bot.getObject3D());
+      this.race.registerRacer(bot.getObject3D(), `AI ${i + 1}`);
     }
 
     // Camera follow
@@ -52,7 +62,7 @@ export class GameScene extends SceneBase {
     const root = this.sceneManager.getOverlayRoot();
     this.hud = document.createElement('div');
     this.hud.className = 'hud';
-    this.hud.innerText = 'Lap 1/3  Time 0:00.0';
+    this.hud.innerText = 'Lap 1/3  Time 0:00.0  P1/5';
     root.appendChild(this.hud);
   }
 
@@ -60,6 +70,9 @@ export class GameScene extends SceneBase {
     this.input.update();
     this.player.update(dt);
     this.ai.forEach(a => a.update(dt));
+
+    // Race update
+    this.race.update(dt);
 
     // Simple camera follow
     const target = this.player.getObject3D().position.clone();
@@ -70,6 +83,21 @@ export class GameScene extends SceneBase {
     const desired = target.clone().add(behind);
     this.camera.position.lerp(desired, 0.08);
     this.camera.lookAt(target.x, target.y + 0.5, target.z);
+
+    // HUD update
+    if (this.hud) {
+      const me = this.race.getStateFor(this.player.getObject3D());
+      const rank = this.race.getRanking().findIndex(r => r.object === this.player.getObject3D()) + 1;
+      const total = 1 + this.ai.length;
+      const laps = this.race.getTotalLaps();
+      const t = this.race.getElapsedSeconds();
+      const minutes = Math.floor(t / 60);
+      const seconds = Math.floor(t % 60);
+      const tenths = Math.floor((t - Math.floor(t)) * 10);
+      const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
+      const curLap = Math.min((me?.lap ?? 0) + 1, laps);
+      this.hud.innerText = `Lap ${curLap}/${laps}  Time ${timeStr}  P${rank}/${total}`;
+    }
   }
 
   dispose(): void {
