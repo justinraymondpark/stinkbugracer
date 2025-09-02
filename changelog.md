@@ -13,6 +13,12 @@
 - Integrate race HUD updates in `GameScene`
  - Fix AI turning math (replace missing angleDifference)
 
+## v0.0.4
+
+- Player drift and boost mechanics
+- Checkpoint gate markers with active highlight
+- AI cornering speed adjustment
+
 ## v0.0.1
 
 - Initial scaffold with Vite + TypeScript + Three.js

@@ -6,6 +6,8 @@ export class StinkbugController {
   private velocity = new THREE.Vector3();
   private heading = 0; // radians
   private speed = 0;
+  private driftTimer = 0;
+  private boostTimer = 0;
 
   constructor(private input: InputSystem) {
     this.object = this.createBugMesh();
@@ -17,11 +19,15 @@ export class StinkbugController {
     const state = this.input.getState();
 
     // Simple arcade car-like physics
-    const maxSpeed = 12;
-    const accel = 18 * state.accelerate;
+    const isDrifting = state.drift;
+    const driftGrip = isDrifting ? 0.5 : 1.0;
+    const driftSteerBonus = isDrifting ? 0.9 : 0;
+    const maxSpeedBase = 12;
+    const maxSpeed = maxSpeedBase * (this.boostTimer > 0 ? 1.35 : 1.0);
+    const accel = 18 * state.accelerate * (this.boostTimer > 0 ? 1.25 : 1.0);
     const brake = 20 * state.brake;
-    const drag = 2.2;
-    const steerRate = 2.4; // rad/s at speed 1
+    const drag = 2.2 * (isDrifting ? 0.9 : 1.0);
+    const steerRate = 2.2 + driftSteerBonus; // rad/s at speed 1
 
     // Update speed
     this.speed += (accel - brake) * dt;
@@ -34,9 +40,26 @@ export class StinkbugController {
 
     // Update position
     const forward = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading) * -1);
+    const lateral = new THREE.Vector3(Math.cos(this.heading), 0, Math.sin(this.heading));
     this.velocity.copy(forward).multiplyScalar(this.speed);
+    // Add some lateral slip while drifting
+    if (isDrifting) {
+      const slip = 0.6 * (this.speed / maxSpeedBase);
+      this.velocity.addScaledVector(lateral, slip);
+      this.driftTimer = Math.min(2.0, this.driftTimer + dt);
+    } else {
+      this.driftTimer = Math.max(0, this.driftTimer - dt * 2);
+    }
     this.object.position.addScaledVector(this.velocity, dt);
     this.object.rotation.y = this.heading;
+
+    // Trigger boost if requested and recently drifted
+    if (state.boost && this.driftTimer > 0.5 && this.boostTimer <= 0) {
+      this.boostTimer = 1.2; // seconds of boost
+    }
+    if (this.boostTimer > 0) {
+      this.boostTimer -= dt;
+    }
   }
 
   private createBugMesh(): THREE.Group {

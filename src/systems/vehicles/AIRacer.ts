@@ -32,8 +32,11 @@ export class AIRacer {
       this.heading += THREE.MathUtils.clamp(delta, -turnRate * dt, turnRate * dt);
     }
 
+    // Slow down in sharper turns, speed up on straights
+    const turnSharpness = Math.abs(angleDelta(this.heading, Math.atan2(toTarget.x, -toTarget.z)));
+    const speedFactor = THREE.MathUtils.clamp(1.0 - turnSharpness / Math.PI, 0.5, 1.0);
     const forward = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading) * -1);
-    const vel = forward.multiplyScalar(this.speed * 0.5);
+    const vel = forward.multiplyScalar(this.speed * 0.5 * speedFactor);
     this.object.position.addScaledVector(vel, dt);
     this.object.position.y = 0.5;
     this.object.rotation.y = this.heading;

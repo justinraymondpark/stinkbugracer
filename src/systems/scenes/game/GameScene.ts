@@ -7,6 +7,7 @@ import { TrackBuilder, BuiltTrack } from '../../track/TrackBuilder';
 import { StinkbugController } from '../../vehicles/StinkbugController';
 import { AIRacer } from '../../vehicles/AIRacer';
 import { RaceManager } from '../../race/RaceManager';
+import { TrackGates } from '../../track/TrackGates';
 
 export class GameScene extends SceneBase {
   private world: THREE.Group = new THREE.Group();
@@ -16,6 +17,7 @@ export class GameScene extends SceneBase {
   private hud: HTMLDivElement | null = null;
   private race!: RaceManager;
   private built!: BuiltTrack;
+  private gates!: TrackGates;
 
   constructor(private engine: Engine, private sceneManager: SceneManager) {
     super();
@@ -34,6 +36,8 @@ export class GameScene extends SceneBase {
     // Build an interesting track with multiple shortcuts
     this.built = new TrackBuilder().buildSampleTrack();
     this.world.add(this.built.root);
+    this.gates = new TrackGates(this.built.checkpoints);
+    this.world.add(this.gates.group);
 
     // Player + AI
     this.input = new InputSystem();
@@ -73,6 +77,8 @@ export class GameScene extends SceneBase {
 
     // Race update
     this.race.update(dt);
+    const me = this.race.getStateFor(this.player.getObject3D());
+    if (me) this.gates.highlight(me.nextCheckpointIndex);
 
     // Simple camera follow
     const target = this.player.getObject3D().position.clone();

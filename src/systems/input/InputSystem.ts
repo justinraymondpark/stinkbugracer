@@ -10,7 +10,7 @@ export class InputSystem {
   private keys = new Set<string>();
   private state: InputState = { accelerate: 0, brake: 0, steer: 0, drift: false, boost: false };
   private gamepadIndex: number | null = null;
-  private touchState = { left: 0, right: 0, accel: 0, brake: 0 };
+  private touchState = { left: 0, right: 0, accel: 0, brake: 0, drift: false, boost: false };
 
   constructor() {
     window.addEventListener('keydown', e => this.keys.add(e.key.toLowerCase()));
@@ -68,6 +68,8 @@ export class InputSystem {
     if (Math.abs(touchSteer) > 0) this.state.steer = touchSteer;
     if (touchAccel > 0) this.state.accelerate = Math.max(this.state.accelerate, touchAccel);
     if (touchBrake > 0) this.state.brake = Math.max(this.state.brake, touchBrake);
+    if (this.touchState.drift) this.state.drift = true;
+    if (this.touchState.boost) this.state.boost = true;
 
     return this.state;
   }
@@ -86,11 +88,17 @@ export class InputSystem {
     accel.className = 'touch-button';
     const brake = document.createElement('div');
     brake.className = 'touch-button';
+    const drift = document.createElement('div');
+    drift.className = 'touch-button';
+    const boost = document.createElement('div');
+    boost.className = 'touch-button';
 
     overlay.appendChild(left);
     overlay.appendChild(right);
     overlay.appendChild(brake);
     overlay.appendChild(accel);
+    overlay.appendChild(drift);
+    overlay.appendChild(boost);
 
     document.getElementById('overlay-root')?.appendChild(overlay);
 
@@ -106,6 +114,8 @@ export class InputSystem {
     press(right, () => { this.touchState.right = 1; }, () => { this.touchState.right = 0; });
     press(accel, () => { this.touchState.accel = 1; }, () => { this.touchState.accel = 0; });
     press(brake, () => { this.touchState.brake = 1; }, () => { this.touchState.brake = 0; });
+    press(drift, () => { this.touchState.drift = true; }, () => { this.touchState.drift = false; });
+    press(boost, () => { this.touchState.boost = true; }, () => { this.touchState.boost = false; });
   }
 }
 
