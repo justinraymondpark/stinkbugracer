@@ -30,6 +30,11 @@
 - Replace tube hack with real road mesh using CatmullRom curve
 - Generate even waypoints from curve; adjust checkpoints spacing
 
+## v0.0.7
+
+- Fix car feel: invert steering to match camera, no rotate at standstill
+- Recompute forward/lateral from yaw; reduce drift slip at low speed
+
 ## v0.0.1
 
 - Initial scaffold with Vite + TypeScript + Three.js

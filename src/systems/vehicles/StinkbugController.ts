@@ -48,16 +48,18 @@ export class StinkbugController {
     this.speed = Math.max(0, Math.min(maxSpeed, this.speed));
 
     // Steering scales with speed
-    const steer = state.steer * steerRate * (0.2 + 0.8 * (this.speed / maxSpeed));
-    this.heading += steer * dt;
+    const steerEffect = Math.min(1, this.speed / 6); // no rotate at standstill
+    const steer = state.steer * steerRate * steerEffect;
+    this.heading -= steer * dt; // invert to make right steer turn right
 
     // Update position
-    const forward = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading) * -1);
-    const lateral = new THREE.Vector3(Math.cos(this.heading), 0, Math.sin(this.heading));
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(yAxis, this.heading);
+    const lateral = new THREE.Vector3(1, 0, 0).applyAxisAngle(yAxis, this.heading);
     this.velocity.copy(forward).multiplyScalar(this.speed);
-    // Add some lateral slip while drifting
-    if (isDrifting) {
-      const slip = 0.6 * (this.speed / maxSpeedBase);
+    // Add some lateral slip while drifting (reduced at low speed)
+    if (isDrifting && this.speed > 2) {
+      const slip = 0.4 * (this.speed / maxSpeedBase);
       this.velocity.addScaledVector(lateral, slip);
       this.driftTimer = Math.min(2.0, this.driftTimer + dt);
     } else {
