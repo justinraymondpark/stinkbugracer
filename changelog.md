@@ -19,6 +19,12 @@
 - Checkpoint gate markers with active highlight
 - AI cornering speed adjustment
 
+## v0.0.5
+
+- Add AudioManager: engine tone, drift noise, boost whoosh
+- Add VFXManager: dust and boost particles
+- Hook audio+VFX into GameScene and player status
+
 ## v0.0.1
 
 - Initial scaffold with Vite + TypeScript + Three.js

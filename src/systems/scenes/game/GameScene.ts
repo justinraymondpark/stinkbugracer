@@ -8,6 +8,8 @@ import { StinkbugController } from '../../vehicles/StinkbugController';
 import { AIRacer } from '../../vehicles/AIRacer';
 import { RaceManager } from '../../race/RaceManager';
 import { TrackGates } from '../../track/TrackGates';
+import { AudioManager } from '../../audio/AudioManager';
+import { VFXManager } from '../../vfx/VFXManager';
 
 export class GameScene extends SceneBase {
   private world: THREE.Group = new THREE.Group();
@@ -18,6 +20,10 @@ export class GameScene extends SceneBase {
   private race!: RaceManager;
   private built!: BuiltTrack;
   private gates!: TrackGates;
+  private audio!: AudioManager;
+  private vfx!: VFXManager;
+  private lastBoosting = false;
+  private dustTimer = 0;
 
   constructor(private engine: Engine, private sceneManager: SceneManager) {
     super();
@@ -38,6 +44,11 @@ export class GameScene extends SceneBase {
     this.world.add(this.built.root);
     this.gates = new TrackGates(this.built.checkpoints);
     this.world.add(this.gates.group);
+
+    // Audio & VFX
+    this.audio = new AudioManager();
+    this.audio.resumeOnUserGesture();
+    this.vfx = new VFXManager(this.threeScene);
 
     // Player + AI
     this.input = new InputSystem();
@@ -79,6 +90,26 @@ export class GameScene extends SceneBase {
     this.race.update(dt);
     const me = this.race.getStateFor(this.player.getObject3D());
     if (me) this.gates.highlight(me.nextCheckpointIndex);
+
+    // Audio & VFX updates based on player status
+    const status = this.player.getStatus();
+    this.audio.updateEngine(status.normalizedSpeed);
+    this.audio.updateDrift(status.drifting);
+    if (!this.lastBoosting && status.boosting) {
+      this.audio.triggerBoost();
+      const boostPos = status.position.clone().addScaledVector(status.forward, -0.4).setY(0.4);
+      this.vfx.spawnBoost(boostPos, status.forward);
+    }
+    this.lastBoosting = status.boosting;
+
+    // Dust while drifting or at speed
+    this.dustTimer += dt;
+    const needDust = status.drifting || status.speed > 6;
+    if (needDust && this.dustTimer > 0.08) {
+      const rear = status.position.clone().addScaledVector(status.forward, -0.35).setY(0.1);
+      this.vfx.spawnDust(rear, status.forward, status.drifting ? 1.2 : 0.6);
+      this.dustTimer = 0;
+    }
 
     // Simple camera follow
     const target = this.player.getObject3D().position.clone();

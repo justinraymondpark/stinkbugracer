@@ -8,12 +8,25 @@ export class StinkbugController {
   private speed = 0;
   private driftTimer = 0;
   private boostTimer = 0;
+  private lastBoostTriggered = 0;
 
   constructor(private input: InputSystem) {
     this.object = this.createBugMesh();
   }
 
   getObject3D() { return this.object; }
+  getStatus() {
+    return {
+      speed: this.speed,
+      normalizedSpeed: Math.min(1, this.speed / 12),
+      drifting: this.driftTimer > 0.1,
+      boosting: this.boostTimer > 0,
+      heading: this.heading,
+      position: this.object.position.clone(),
+      forward: new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading) * -1),
+      justBoosted: false,
+    };
+  }
 
   update(dt: number) {
     const state = this.input.getState();
@@ -56,6 +69,7 @@ export class StinkbugController {
     // Trigger boost if requested and recently drifted
     if (state.boost && this.driftTimer > 0.5 && this.boostTimer <= 0) {
       this.boostTimer = 1.2; // seconds of boost
+      this.lastBoostTriggered = performance.now();
     }
     if (this.boostTimer > 0) {
       this.boostTimer -= dt;
