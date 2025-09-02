@@ -12,7 +12,6 @@ export class TrackBuilder {
     const group = new THREE.Group();
 
     // Main loop (oval with variation)
-    const path = new THREE.CurvePath<THREE.Vector3>();
     const points: THREE.Vector3[] = [];
     const radiusX = 18;
     const radiusZ = 12;
@@ -22,20 +21,10 @@ export class TrackBuilder {
       const z = Math.sin(a) * (radiusZ + Math.cos(a * 2) * 2);
       points.push(new THREE.Vector3(x, 0, z));
     }
-    // Segments
-    for (let i = 0; i < points.length; i++) {
-      const a = points[i];
-      const b = points[(i + 1) % points.length];
-      const line = new THREE.LineCurve3(a, b);
-      path.add(line);
-    }
-
-    const roadWidth = 3.2;
-    const geometry = new THREE.TubeGeometry(path, 256, roadWidth, 8, true);
-    const material = new THREE.MeshStandardMaterial({ color: 0x2b2b34, metalness: 0.0, roughness: 1.0 });
-    const road = new THREE.Mesh(geometry, material);
-    road.rotation.x = Math.PI / 2; // make tube flat-ish look
-    road.scale.set(1, 0.12, 1);
+    // Curve for sampling and road construction
+    const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.5);
+    const roadWidth = 3.4;
+    const road = this.buildRoad(curve, roadWidth, 256);
     group.add(road);
 
     // Shortcut tunnel
@@ -77,7 +66,14 @@ export class TrackBuilder {
     }
 
     // Waypoints & checkpoints
-    const waypointsMain = points.map(p => p.clone());
+    const waypointsMain: THREE.Vector3[] = [];
+    const samples = 128;
+    for (let i = 0; i < samples; i++) {
+      const t = i / samples;
+      const p = curve.getPointAt(t).clone();
+      p.y = 0.12;
+      waypointsMain.push(p);
+    }
 
     // Build a shortcut path that goes through the tunnel
     const shortcut = waypointsMain.map(p => p.clone());
@@ -100,11 +96,63 @@ export class TrackBuilder {
 
     // Checkpoints every 4 points (~8 checkpoints around loop)
     const checkpoints: THREE.Vector3[] = [];
-    for (let i = 0; i < waypointsMain.length; i += 4) {
+    for (let i = 0; i < waypointsMain.length; i += Math.floor(samples / 10)) {
       const p = waypointsMain[i].clone(); p.y = 0.35; checkpoints.push(p);
     }
 
     return { root: group, checkpoints, waypointsMain, waypointsShortcut: shortcut };
+  }
+
+  private buildRoad(curve: THREE.CatmullRomCurve3, halfWidth: number, segments: number): THREE.Mesh {
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    const up = new THREE.Vector3(0, 1, 0);
+
+    const lefts: THREE.Vector3[] = [];
+    const rights: THREE.Vector3[] = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const p = curve.getPointAt(t);
+      const tangent = curve.getTangentAt(t).normalize();
+      const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+      const left = new THREE.Vector3().copy(p).addScaledVector(side, halfWidth);
+      const right = new THREE.Vector3().copy(p).addScaledVector(side, -halfWidth);
+      left.y = right.y = 0.12;
+      lefts.push(left);
+      rights.push(right);
+    }
+
+    for (let i = 0; i <= segments; i++) {
+      const l = lefts[i];
+      const r = rights[i];
+      positions.push(l.x, l.y, l.z, r.x, r.y, r.z);
+      normals.push(0, 1, 0, 0, 1, 0);
+      uvs.push(0, i / segments, 1, i / segments);
+    }
+
+    for (let i = 0; i < segments; i++) {
+      const a = i * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      indices.push(a, b, c, b, d, c);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeBoundingSphere();
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2b2b34, roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = false;
+    mesh.castShadow = false;
+    return mesh;
   }
 }
 

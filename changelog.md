@@ -25,6 +25,11 @@
 - Add VFXManager: dust and boost particles
 - Hook audio+VFX into GameScene and player status
 
+## v0.0.6
+
+- Replace tube hack with real road mesh using CatmullRom curve
+- Generate even waypoints from curve; adjust checkpoints spacing
+
 ## v0.0.1
 
 - Initial scaffold with Vite + TypeScript + Three.js
